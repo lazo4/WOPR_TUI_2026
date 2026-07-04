@@ -3,6 +3,10 @@ name = "wopr-tui-2026"
 version = "0.1.0"
 edition = "2024"
 
+[[bin]]
+name = "wopr-2026"
+path = "src/main.rs"
+
 [dependencies]
 ratatui = "0.30"
 crossterm = { version = "0.28", features = ["event-stream"] }

@@ -130,11 +130,7 @@ impl App {
     }
 
     async fn generate_scenario(&mut self, category: ScenarioCategory) {
-        let provider = llm::create_provider(
-            &self.settings.provider,
-            self.settings.api_key.clone(),
-            self.settings.model.clone(),
-        );
+        let provider = llm::create_provider(&self.settings);
 
         let request = LlmRequest {
             system_prompt: WOPR_SYSTEM_PROMPT.to_string(),

@@ -8,6 +8,7 @@ pub struct AnthropicProvider {
     client: Client,
     api_key: String,
     model: String,
+    base_url: String,
 }
 
 #[derive(Serialize)]
@@ -46,11 +47,12 @@ struct Usage {
 }
 
 impl AnthropicProvider {
-    pub fn new(api_key: String, model: Option<String>) -> Self {
+    pub fn new(api_key: String, model: Option<String>, base_url: Option<String>) -> Self {
         Self {
             client: Client::new(),
             api_key,
             model: model.unwrap_or_else(|| "claude-sonnet-4-6".into()),
+            base_url: base_url.unwrap_or_else(|| "https://api.anthropic.com".into()),
         }
     }
 
@@ -69,7 +71,7 @@ impl AnthropicProvider {
 
         let resp = self
             .client
-            .post("https://api.anthropic.com/v1/messages")
+            .post(format!("{}/v1/messages", self.base_url))
             .header("x-api-key", &self.api_key)
             .header("anthropic-version", "2023-06-01")
             .header("content-type", "application/json")

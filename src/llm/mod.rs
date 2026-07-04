@@ -16,15 +16,18 @@ pub trait LlmProvider: Send + Sync {
     fn generate_stream(&self, request: &LlmRequest) -> StreamResult;
 }
 
-pub fn create_provider(name: &str, api_key: Option<String>, model: Option<String>) -> Box<dyn LlmProviderBoxed> {
-    match name {
+use crate::config::Settings;
+
+pub fn create_provider(settings: &Settings) -> Box<dyn LlmProviderBoxed> {
+    // ponytail: route by protocol kind, not provider name — blumi providers all declare their wire protocol
+    match settings.kind.as_str() {
         "anthropic" => {
-            let key = api_key.expect("anthropic provider requires api_key in settings");
-            Box::new(anthropic::AnthropicProvider::new(key, model))
+            let key = settings.api_key.clone().expect("provider requires api_key in ~/.blumi/settings.json");
+            Box::new(anthropic::AnthropicProvider::new(key, settings.model.clone(), settings.base_url.clone()))
         }
-        "minimax" => {
-            let key = api_key.expect("minimax provider requires api_key in settings");
-            Box::new(minimax::MinimaxProvider::new(key, model))
+        _ if settings.api_key.is_some() => {
+            let key = settings.api_key.clone().unwrap();
+            Box::new(anthropic::AnthropicProvider::new(key, settings.model.clone(), settings.base_url.clone()))
         }
         _ => Box::new(stub::StubProvider::new()),
     }

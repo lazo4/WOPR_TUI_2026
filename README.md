@@ -35,18 +35,22 @@ cargo run
 
 ## Configuration
 
-Create `~/.wopr/settings.json` to configure:
+Reads LLM settings from `~/.blumi/settings.json` (shared with other blumi apps). The relevant fields:
 
 ```json
 {
-  "provider": "stub",
-  "api_key": "",
-  "model": "claude-sonnet-4-20250514",
-  "max_tokens": 1024
+  "llm": { "provider": "minimax", "model": "MiniMax-M3" },
+  "providers": {
+    "minimax": {
+      "api_key": "sk-...",
+      "base_url": "https://api.minimax.io/anthropic",
+      "kind": "anthropic"
+    }
+  }
 }
 ```
 
-Providers: `stub` (default, no API key needed), `anthropic`, `minimax`.
+Falls back to stub provider (no API key needed) if `~/.blumi/settings.json` is missing.
 
 ## Architecture
 
