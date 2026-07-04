@@ -29,6 +29,7 @@ pub fn render(frame: &mut Frame, view: &ViewState, state: &AppState) {
     }
     render_status_bar(frame, view, state);
     render_content(frame, view, state);
+    render_bottom_panel(frame, view, state);
     render_input_bar(frame, view, state);
     if state.show_help {
         render_help(frame, view);
@@ -36,7 +37,7 @@ pub fn render(frame: &mut Frame, view: &ViewState, state: &AppState) {
     if state.llm_loading {
         frame.render_widget(
             LoadingOverlay { tick: state.tick_count, start_tick: state.llm_loading_start_tick },
-            view.content,
+            view.top_content,
         );
     }
 }
@@ -65,11 +66,33 @@ fn render_status_bar(frame: &mut Frame, view: &ViewState, state: &AppState) {
 
 fn render_content(frame: &mut Frame, view: &ViewState, state: &AppState) {
     match &state.mode {
-        Mode::MainMap => render_main_map(frame, view.content, state),
-        Mode::Comms => render_comms(frame, view.content, state),
-        Mode::Scenario => render_scenario(frame, view.content, state),
-        Mode::Defcon => render_defcon(frame, view.content, state),
-        Mode::Settings => render_settings(frame, view.content, state),
+        Mode::MainMap | Mode::Scenario => render_main_map(frame, view.top_content, state),
+        Mode::Comms => render_comms(frame, view.top_content, state),
+        Mode::Defcon => render_defcon(frame, view.top_content, state),
+        Mode::Settings => render_settings(frame, view.top_content, state),
+    }
+}
+
+fn render_bottom_panel(frame: &mut Frame, view: &ViewState, state: &AppState) {
+    match &state.current_scenario {
+        Some(scenario) => {
+            let mut panel = DecisionPanel::new(scenario, state.selected_option);
+            if let Some((remaining, total)) = state.countdown {
+                panel = panel.with_countdown(remaining, total);
+            }
+            frame.render_widget(panel, view.bottom_panel);
+        }
+        None => {
+            let block = Block::default().borders(Borders::ALL).title(" DECISION CENTER ");
+            let inner = block.inner(view.bottom_panel);
+            frame.render_widget(block, view.bottom_panel);
+            frame.render_widget(
+                Paragraph::new("AWAITING ORDERS...")
+                    .alignment(Alignment::Center)
+                    .style(Style::default().fg(Color::Yellow)),
+                inner,
+            );
+        }
     }
 }
 
@@ -99,29 +122,6 @@ fn render_comms(frame: &mut Frame, area: Rect, state: &AppState) {
         CommsPanel::new(&state.comms, state.comms_scroll),
         area,
     );
-}
-
-fn render_scenario(frame: &mut Frame, area: Rect, state: &AppState) {
-    match &state.current_scenario {
-        Some(scenario) => {
-            let mut panel = DecisionPanel::new(scenario, state.selected_option);
-            if let Some((remaining, total)) = state.countdown {
-                panel = panel.with_countdown(remaining, total);
-            }
-            frame.render_widget(panel, area);
-        }
-        None => {
-            let block = Block::default().borders(Borders::ALL).title(" SCENARIO ");
-            let inner = block.inner(area);
-            frame.render_widget(block, area);
-            frame.render_widget(
-                Paragraph::new("AWAITING SCENARIO DATA...")
-                    .alignment(Alignment::Center)
-                    .style(Style::default().fg(Color::Yellow)),
-                inner,
-            );
-        }
-    }
 }
 
 fn render_defcon(frame: &mut Frame, area: Rect, state: &AppState) {
@@ -206,7 +206,7 @@ fn render_input_bar(frame: &mut Frame, view: &ViewState, state: &AppState) {
 }
 
 fn render_help(frame: &mut Frame, view: &ViewState) {
-    let popup = centered_rect(50, 50, view.content);
+    let popup = centered_rect(50, 50, view.top_content);
     let block = Block::default().borders(Borders::ALL).title(" HELP ");
     let inner = block.inner(popup);
     frame.render_widget(Clear, popup);
@@ -223,7 +223,7 @@ fn render_help(frame: &mut Frame, view: &ViewState) {
             Line::from("  [q]           Quit"),
             Line::from(""),
             Line::from(Span::styled(
-                "  MODES: Map │ Comms │ Scenario │ Defcon │ Settings",
+                "  MODES: Map │ Comms │ Defcon │ Settings  (Decision panel always visible below)",
                 Style::default().fg(Color::Yellow),
             )),
         ]),

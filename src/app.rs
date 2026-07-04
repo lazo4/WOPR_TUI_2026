@@ -89,7 +89,7 @@ impl App {
                                         self.state.player_country = Some(country);
                                         self.state.game_context.player_country = Some(country);
                                         self.state.show_country_select = false;
-                                        self.start_game().await;
+                                        self.start_game();
                                     }
                                     KeyCode::Char('q') => {
                                         let _ = self.tx.send(AppEvent::Quit).await;
@@ -101,7 +101,7 @@ impl App {
                                     let _ = self.tx.send(AppEvent::Quit).await;
                                 }
                                 KeyCode::Enter if self.state.current_scenario.is_some() => {
-                                    self.submit_decision().await;
+                                    self.submit_decision();
                                 }
                                 KeyCode::Char(c @ '1'..='4') if self.state.current_scenario.is_some() => {
                                     let idx = (c as usize) - ('1' as usize);
@@ -135,7 +135,7 @@ impl App {
         }
     }
 
-    async fn start_game(&mut self) {
+    fn start_game(&mut self) {
         self.state.game_active = true;
         self.state.game_context.defcon_level = 5;
 
@@ -152,59 +152,30 @@ impl App {
 
         self.state.llm_loading = true;
         self.state.llm_loading_start_tick = self.state.tick_count;
-        self.generate_scenario(ScenarioCategory::MilitaryConfrontation).await;
-        self.state.llm_loading = false;
+        self.spawn_scenario(ScenarioCategory::MilitaryConfrontation);
     }
 
-    async fn generate_scenario(&mut self, category: ScenarioCategory) {
-        let provider = llm::create_provider(&self.settings);
-
-        let request = LlmRequest {
-            system_prompt: WOPR_SYSTEM_PROMPT.to_string(),
-            user_prompt: scenario_prompt(&self.state.game_context, category),
-            context_json: self.state.game_context.to_llm_context(),
-            temperature: self.settings.temperature,
-            max_tokens: self.settings.max_tokens,
-        };
-
-        match provider.generate_boxed(&request).await {
-            Ok(response) => {
-                self.state.scenario_counter += 1;
-                if let Ok(scenario) = parse_scenario(&response.content, self.state.scenario_counter) {
-                    // add scenario comms
-                    for comm in &scenario.comms {
-                        let mut c = comm.clone();
-                        c.timestamp = self.state.tick_count;
-                        self.state.comms.push(c);
-                    }
-
-                    // add threats
-                    for region in &scenario.affected_regions {
-                        self.state.threats.push(ThreatMarker {
-                            location: crate::game::consequence::region_to_coords(region),
-                            severity: scenario.threat_level,
-                        });
-                    }
-
-                    self.state.selected_option = 0;
-                    self.state.current_scenario = Some(scenario);
-                    self.state.mode = crate::mode::Mode::Scenario;
-                }
+    fn spawn_scenario(&self, category: ScenarioCategory) {
+        let tx = self.tx.clone();
+        let settings = self.settings.clone();
+        let context = self.state.game_context.clone();
+        tokio::spawn(async move {
+            let provider = llm::create_provider(&settings);
+            let request = LlmRequest {
+                system_prompt: WOPR_SYSTEM_PROMPT.to_string(),
+                user_prompt: scenario_prompt(&context, category),
+                context_json: context.to_llm_context(),
+                temperature: settings.temperature,
+                max_tokens: settings.max_tokens,
+            };
+            match provider.generate_boxed(&request).await {
+                Ok(response) => { let _ = tx.send(AppEvent::ScenarioReady(response.content)).await; }
+                Err(_) => { let _ = tx.send(AppEvent::ScenarioFailed).await; }
             }
-            Err(_) => {
-                self.state.comms.push(make_comm(
-                    Country::Unknown,
-                    "▒▒▒ SIGNAL LOST ▒▒▒",
-                    "COMMS ERROR — LLM provider unreachable",
-                    CommPriority::Flash,
-                    self.state.tick_count,
-                    0.0,
-                ));
-            }
-        }
+        });
     }
 
-    async fn submit_decision(&mut self) {
+    fn submit_decision(&mut self) {
         let scenario = match self.state.current_scenario.take() {
             Some(s) => s,
             None => return,
@@ -263,8 +234,7 @@ impl App {
         let cat = categories[self.state.game_context.turn_number as usize % categories.len()];
         self.state.llm_loading = true;
         self.state.llm_loading_start_tick = self.state.tick_count;
-        self.generate_scenario(cat).await;
-        self.state.llm_loading = false;
+        self.spawn_scenario(cat);
     }
 
     fn apply_game_event(&mut self, event: GameEvent) {
@@ -322,6 +292,37 @@ impl App {
                 KeyCode::Char('?') => self.state.show_help = true,
                 _ => {}
             },
+            AppEvent::ScenarioReady(content) => {
+                self.state.llm_loading = false;
+                self.state.scenario_counter += 1;
+                if let Ok(scenario) = parse_scenario(&content, self.state.scenario_counter) {
+                    for comm in &scenario.comms {
+                        let mut c = comm.clone();
+                        c.timestamp = self.state.tick_count;
+                        self.state.comms.push(c);
+                    }
+                    for region in &scenario.affected_regions {
+                        self.state.threats.push(ThreatMarker {
+                            location: crate::game::consequence::region_to_coords(region),
+                            severity: scenario.threat_level,
+                        });
+                    }
+                    self.state.selected_option = 0;
+                    self.state.current_scenario = Some(scenario);
+                    self.state.mode = crate::mode::Mode::Scenario;
+                }
+            }
+            AppEvent::ScenarioFailed => {
+                self.state.llm_loading = false;
+                self.state.comms.push(make_comm(
+                    Country::Unknown,
+                    "▒▒▒ SIGNAL LOST ▒▒▒",
+                    "COMMS ERROR — LLM provider unreachable",
+                    CommPriority::Flash,
+                    self.state.tick_count,
+                    0.0,
+                ));
+            }
             AppEvent::GameEvent(_ge) => {}
             AppEvent::Quit => {}
         }

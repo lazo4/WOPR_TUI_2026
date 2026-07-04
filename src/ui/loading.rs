@@ -53,6 +53,10 @@ impl Widget for LoadingOverlay {
         let current_step = (phase / TICKS_PER_STEP) as usize;
         let step_progress = phase % TICKS_PER_STEP;
 
+        // Color cycles Green→Yellow→Red→White every 30 ticks
+        const CYCLE_COLORS: [Color; 4] = [Color::Green, Color::Yellow, Color::Red, Color::White];
+        let accent = CYCLE_COLORS[(self.tick / 30) as usize % CYCLE_COLORS.len()];
+
         let mut lines = vec![Line::from("")];
 
         for (i, label) in STEPS.iter().enumerate() {
@@ -66,8 +70,8 @@ impl Widget for LoadingOverlay {
                 let f = (step_progress as usize * BAR_LEN) / TICKS_PER_STEP as usize;
                 (
                     f,
-                    Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD),
-                    Color::Yellow,
+                    Style::default().fg(accent).add_modifier(Modifier::BOLD),
+                    accent,
                 )
             } else {
                 (
