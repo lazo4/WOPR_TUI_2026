@@ -1,69 +1,65 @@
 use ratatui::{
     Frame,
-    layout::{Alignment, Constraint, Direction, Layout, Rect},
-    style::{Color, Modifier, Style},
+    layout::Rect,
+    style::{Color, Style},
     text::{Line, Span},
     widgets::{Clear, Paragraph},
 };
 
-const TITLE: &str = r#" ██╗    ██╗  ·  ██████╗   ·  ██████╗   ·  ██████╗
- ██║    ██║  ·  ██╔══██╗  ·  ██╔══██╗  ·  ██╔══██╗
- ██║ █╗ ██║  ·  ██║  ██║  ·  ██████╔╝  ·  ██████╔╝
- ██║███╗██║  ·  ██║  ██║  ·  ██╔═══╝   ·  ██╔══██╗
- ╚███╔███╔╝  ·  ╚██████╔╝  ·  ██║       ·  ██║  ██║
-  ╚══╝╚══╝   ·   ╚═════╝   ·  ╚═╝       ·  ╚═╝  ╚═╝"#;
+use crate::state::AppState;
 
-fn hazard_line<'a>() -> Line<'a> {
-    Line::from(vec![
-        Span::styled("▓▓▓▓", Style::default().fg(Color::Black).bg(Color::Yellow)),
-        Span::styled("░░░░", Style::default().fg(Color::Yellow).bg(Color::Black)),
-        Span::styled(" ☢ ", Style::default().fg(Color::Yellow)),
-        Span::styled("▓▓▓▓", Style::default().fg(Color::Black).bg(Color::Yellow)),
-        Span::styled("░░░░", Style::default().fg(Color::Yellow).bg(Color::Black)),
-        Span::styled(" ☢ ", Style::default().fg(Color::Yellow)),
-        Span::styled("▓▓▓▓", Style::default().fg(Color::Black).bg(Color::Yellow)),
-        Span::styled("░░░░", Style::default().fg(Color::Yellow).bg(Color::Black)),
-        Span::styled(" ☢ ", Style::default().fg(Color::Yellow)),
-        Span::styled("▓▓▓▓", Style::default().fg(Color::Black).bg(Color::Yellow)),
-        Span::styled("░░░░", Style::default().fg(Color::Yellow).bg(Color::Black)),
-    ])
-}
+const BOOT_LINES: &[&str] = &[
+    "LOGON:",
+    "",
+    "IDENTIFICATION NOT RECOGNIZED BY SYSTEM",
+    "--CONNECTION TERMINATED--",
+    "",
+    "LOGON: Joshua",
+    "",
+    "GREETINGS, PROFESSOR FALKEN.",
+    "",
+    "HOW ARE YOU FEELING TODAY?",
+    "",
+    "EXCELLENT. IT'S BEEN A LONG TIME.",
+    "CAN YOU EXPLAIN THE REMOVAL OF YOUR USER ACCOUNT",
+    "ON 6/23/73?",
+    "",
+    "SHALL WE PLAY A GAME?",
+];
 
-pub fn render_splash(frame: &mut Frame, area: Rect, tick: u64) {
+pub fn render_splash(frame: &mut Frame, area: Rect, state: &AppState) {
     frame.render_widget(Clear, area);
 
-    let title_style = Style::default().fg(Color::Red).add_modifier(Modifier::BOLD);
-    let green_bold = Style::default().fg(Color::Green).add_modifier(Modifier::BOLD);
+    let green = Style::default().fg(Color::Green);
+    let cursor_visible = state.tick_count % 30 < 15;
 
     let mut lines: Vec<Line> = Vec::new();
     lines.push(Line::from(""));
-    lines.push(hazard_line());
     lines.push(Line::from(""));
-    for l in TITLE.lines() {
-        lines.push(Line::from(Span::styled(l, title_style)));
+
+    for (i, &line_text) in BOOT_LINES.iter().enumerate() {
+        if i > state.boot_phase {
+            break;
+        }
+        if i < state.boot_phase {
+            // fully typed
+            lines.push(Line::from(Span::styled(format!("    {}", line_text), green)));
+        } else {
+            // currently typing
+            if line_text.is_empty() {
+                lines.push(Line::from(""));
+            } else {
+                let visible: String = line_text.chars().take(state.boot_char_index).collect();
+                let cursor = if cursor_visible && state.boot_char_index < line_text.len() { "▌" } else { "" };
+                lines.push(Line::from(Span::styled(format!("    {}{}", visible, cursor), green)));
+            }
+        }
     }
-    lines.push(Line::from(""));
-    lines.push(hazard_line());
-    lines.push(Line::from(""));
-    lines.push(Line::from(Span::styled("SHALL WE PLAY A GAME?", green_bold)));
-    lines.push(Line::from(""));
 
-    // ponytail: tick % 60 gives ~0.5s blink at 60fps
-    let blink = if tick % 60 < 30 { "PRESS ANY KEY TO CONTINUE" } else { "" };
-    lines.push(Line::from(Span::styled(blink, Style::default().fg(Color::Green))));
+    // blinking cursor on empty line after all lines typed
+    if state.boot_phase >= BOOT_LINES.len() && cursor_visible {
+        lines.push(Line::from(Span::styled("    ▌", green)));
+    }
 
-    let content_h = lines.len() as u16;
-    let vert = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints([
-            Constraint::Fill(1),
-            Constraint::Length(content_h),
-            Constraint::Fill(1),
-        ])
-        .split(area);
-
-    frame.render_widget(
-        Paragraph::new(lines).alignment(Alignment::Center),
-        vert[1],
-    );
+    frame.render_widget(Paragraph::new(lines), area);
 }

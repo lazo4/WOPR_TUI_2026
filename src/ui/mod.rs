@@ -1,3 +1,4 @@
+pub mod about;
 pub mod anim;
 pub mod comms_panel;
 pub mod country_select;

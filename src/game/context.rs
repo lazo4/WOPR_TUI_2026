@@ -16,7 +16,13 @@ pub struct GameContext {
     pub world_state: WorldState,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub player_country: Option<Country>,
+    #[serde(default = "default_min_defcon")]
+    pub min_defcon_reached: u8,
+    #[serde(default)]
+    pub consecutive_defcon1_turns: u32,
 }
+
+fn default_min_defcon() -> u8 { 5 }
 
 impl GameContext {
     pub fn new() -> Self {
@@ -37,6 +43,8 @@ impl GameContext {
             timeline: Vec::new(),
             world_state: WorldState::default(),
             player_country: None,
+            min_defcon_reached: 5,
+            consecutive_defcon1_turns: 0,
         }
     }
 
@@ -71,6 +79,12 @@ impl GameContext {
     }
 
     pub fn advance_turn(&mut self) {
+        self.min_defcon_reached = self.min_defcon_reached.min(self.defcon_level);
+        if self.defcon_level == 1 {
+            self.consecutive_defcon1_turns += 1;
+        } else {
+            self.consecutive_defcon1_turns = 0;
+        }
         self.turn_number += 1;
     }
 }

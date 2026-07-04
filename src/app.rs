@@ -295,6 +295,7 @@ impl App {
         match event {
             GameEvent::DefconChange(level) => {
                 self.state.defcon = self.state.defcon.try_change(level);
+                self.state.defcon_flash_remaining = 30;
             }
             GameEvent::CommReceived(mut comm) => {
                 comm.timestamp = self.state.tick_count;
@@ -313,10 +314,19 @@ impl App {
             }
             GameEvent::PlayerDecision { .. } => {}
             GameEvent::DiplomaticAction { country, action } => {
-                self.state.game_context.add_timeline(format!(
-                    "{} — {:?}",
-                    country, action
-                ));
+                let status = match action {
+                    crate::game::types::DiplAction::Treaty | crate::game::types::DiplAction::DeEscalate => {
+                        crate::game::types::RelationStatus::Neutral
+                    }
+                    crate::game::types::DiplAction::Threaten | crate::game::types::DiplAction::Mobilize => {
+                        crate::game::types::RelationStatus::Hostile
+                    }
+                    crate::game::types::DiplAction::Sanction | crate::game::types::DiplAction::Expel => {
+                        crate::game::types::RelationStatus::Tense
+                    }
+                };
+                self.state.game_context.diplomatic_status.insert(country.full_name().to_string(), status);
+                self.state.game_context.add_timeline(format!("{} — {:?}", country, action));
             }
             GameEvent::GameOver(_) => {
                 self.state.game_active = false;
@@ -330,6 +340,12 @@ impl App {
                     self.state.tick_count,
                     0.0,
                 ));
+            }
+            GameEvent::WorldStateUpdate { economic, military, political } => {
+                let ws = &mut self.state.game_context.world_state;
+                ws.economic_stability = (ws.economic_stability + economic).clamp(0.0, 1.0);
+                ws.military_tension = (ws.military_tension + military).clamp(0.0, 1.0);
+                ws.political_unrest = (ws.political_unrest + political).clamp(0.0, 1.0);
             }
             GameEvent::ScenarioUpdate(_) => {}
         }

@@ -19,7 +19,7 @@ use super::world_map::WorldMap;
 
 pub fn render(frame: &mut Frame, view: &ViewState, state: &AppState) {
     if state.show_splash {
-        super::splash::render_splash(frame, frame.area(), state.tick_count);
+        super::splash::render_splash(frame, frame.area(), state);
         return;
     }
     if state.show_country_select {
@@ -46,11 +46,13 @@ fn render_status_bar(frame: &mut Frame, view: &ViewState, state: &AppState) {
     let dl = state.defcon.level();
     let color = state.defcon.color();
     let label = state.defcon.label();
+    let defcon_style = if state.defcon_flash_remaining > 0 && state.tick_count % 10 < 5 {
+        Style::default().fg(color).bg(Color::Black).add_modifier(Modifier::BOLD | Modifier::REVERSED)
+    } else {
+        Style::default().fg(Color::Black).bg(color).add_modifier(Modifier::BOLD)
+    };
     let text = Line::from(vec![
-        Span::styled(
-            format!(" DEFCON {} ", dl),
-            Style::default().fg(Color::Black).bg(color).add_modifier(Modifier::BOLD),
-        ),
+        Span::styled(format!(" DEFCON {} ", dl), defcon_style),
         Span::styled(format!(" {} ", label), Style::default().fg(color)),
         Span::styled(" │ ", Style::default().fg(Color::DarkGray)),
         Span::styled(format!("{}", state.mode), Style::default().fg(Color::White)),
@@ -60,6 +62,12 @@ fn render_status_bar(frame: &mut Frame, view: &ViewState, state: &AppState) {
             format!("  TURN {}", state.game_context.turn_number),
             Style::default().fg(Color::Yellow),
         ),
+        Span::styled(" │ ", Style::default().fg(Color::DarkGray)),
+        tension_gauge("MIL", state.game_context.world_state.military_tension),
+        Span::raw(" "),
+        tension_gauge("ECO", 1.0 - state.game_context.world_state.economic_stability),
+        Span::raw(" "),
+        tension_gauge("POL", state.game_context.world_state.political_unrest),
     ]);
     frame.render_widget(Paragraph::new(text), view.status_bar);
 }
@@ -77,6 +85,7 @@ fn render_content(frame: &mut Frame, view: &ViewState, state: &AppState) {
         Mode::Comms => render_comms(frame, view.top_content, state),
         Mode::Defcon => render_defcon(frame, view.top_content, state),
         Mode::Settings => render_settings(frame, view.top_content, state),
+        Mode::About => super::about::render_about(frame, view.top_content),
     }
 }
 
@@ -123,33 +132,31 @@ fn render_endgame(frame: &mut Frame, area: Rect, state: &AppState) {
     let inner = block.inner(area);
     frame.render_widget(block, area);
 
-    let msg = state.game_outcome_message.as_deref().unwrap_or("GAME OVER");
     let turns = state.game_context.turn_number;
     let decisions = state.game_context.player_decisions.len();
 
-    let mut lines = vec![
-        Line::from(""),
-        Line::from(Span::styled(msg, Style::default().fg(color).add_modifier(Modifier::BOLD))),
-        Line::from(""),
-        Line::from(Span::styled(
-            format!("Turns: {}  Decisions: {}  Final DEFCON: {}", turns, decisions, state.defcon.level()),
-            Style::default().fg(Color::DarkGray),
-        )),
-        Line::from(""),
-        Line::from(vec![
-            Span::styled("  [R] ", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
-            Span::styled("Play Again    ", Style::default().fg(Color::White)),
-            Span::styled("[Q] ", Style::default().fg(Color::DarkGray)),
-            Span::styled("Quit", Style::default().fg(Color::White)),
-        ]),
-    ];
+    let art = if is_victory {
+        crate::game::endgame::VICTORY_ART
+    } else {
+        crate::game::endgame::DEFEAT_ART
+    };
 
-    if is_victory {
-        lines.insert(1, Line::from(Span::styled(
-            "\"The only winning move is not to play.\"",
-            Style::default().fg(Color::Green),
-        )));
-    }
+    let mut lines: Vec<Line> = art.lines()
+        .map(|l| Line::from(Span::styled(l.to_string(), Style::default().fg(color))))
+        .collect();
+
+    lines.push(Line::from(""));
+    lines.push(Line::from(Span::styled(
+        format!("Turns: {}  Decisions: {}  Final DEFCON: {}", turns, decisions, state.defcon.level()),
+        Style::default().fg(Color::DarkGray),
+    )));
+    lines.push(Line::from(""));
+    lines.push(Line::from(vec![
+        Span::styled("  [R] ", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+        Span::styled("Play Again    ", Style::default().fg(Color::White)),
+        Span::styled("[Q] ", Style::default().fg(Color::DarkGray)),
+        Span::styled("Quit", Style::default().fg(Color::White)),
+    ]));
 
     frame.render_widget(
         Paragraph::new(lines).alignment(Alignment::Center),
@@ -304,12 +311,19 @@ fn render_help(frame: &mut Frame, view: &ViewState) {
             Line::from("  [q]           Quit"),
             Line::from(""),
             Line::from(Span::styled(
-                "  MODES: Map │ Comms │ Defcon │ Settings  (Decision panel always visible below)",
+                "  MODES: Map │ Comms │ About │ Settings │ Defcon  (Decision panel always visible below)",
                 Style::default().fg(Color::Yellow),
             )),
         ]),
         inner,
     );
+}
+
+fn tension_gauge<'a>(label: &'a str, value: f32) -> Span<'a> {
+    let filled = (value * 4.0).round() as usize;
+    let bar: String = "▓".repeat(filled.min(4)) + &"░".repeat(4_usize.saturating_sub(filled));
+    let color = if value > 0.7 { Color::Red } else if value > 0.4 { Color::Yellow } else { Color::Green };
+    Span::styled(format!("{}:{}", label, bar), Style::default().fg(color))
 }
 
 fn centered_rect(pct_x: u16, pct_y: u16, r: Rect) -> Rect {

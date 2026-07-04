@@ -48,6 +48,15 @@ pub struct AppState {
     // retry state
     pub pending_category: Option<crate::game::types::ScenarioCategory>,
     pub retry_count: u32,
+
+    // boot sequence
+    pub boot_phase: usize,
+    pub boot_char_index: usize,
+    pub boot_tick_start: u64,
+    pub boot_done: bool,
+
+    // defcon flash
+    pub defcon_flash_remaining: u8,
 }
 
 impl AppState {
@@ -86,11 +95,18 @@ impl AppState {
             game_outcome_message: None,
             pending_category: None,
             retry_count: 0,
+            boot_phase: 0,
+            boot_char_index: 0,
+            boot_tick_start: 0,
+            boot_done: false,
+            defcon_flash_remaining: 0,
         }
     }
 
     pub fn tick(&mut self) {
         self.tick_count = self.tick_count.saturating_add(1);
+        self.defcon_flash_remaining = self.defcon_flash_remaining.saturating_sub(1);
+        self.advance_boot();
         // advance missiles
         for m in &mut self.missiles {
             let elapsed = self.tick_count.saturating_sub(m.launched_at_tick) as f32;
@@ -113,5 +129,61 @@ impl AppState {
 
     pub fn defcon_level(&self) -> u8 {
         self.defcon.level()
+    }
+
+    fn advance_boot(&mut self) {
+        if !self.show_splash || self.boot_done {
+            return;
+        }
+        const BOOT_LINES: &[&str] = &[
+            "LOGON:",
+            "",
+            "IDENTIFICATION NOT RECOGNIZED BY SYSTEM",
+            "--CONNECTION TERMINATED--",
+            "",
+            "LOGON: Joshua",
+            "",
+            "GREETINGS, PROFESSOR FALKEN.",
+            "",
+            "HOW ARE YOU FEELING TODAY?",
+            "",
+            "EXCELLENT. IT'S BEEN A LONG TIME.",
+            "CAN YOU EXPLAIN THE REMOVAL OF YOUR USER ACCOUNT",
+            "ON 6/23/73?",
+            "",
+            "SHALL WE PLAY A GAME?",
+        ];
+        if self.boot_phase >= BOOT_LINES.len() {
+            // pause after final line then auto-transition
+            if self.tick_count.saturating_sub(self.boot_tick_start) >= 120 {
+                self.boot_done = true;
+                self.show_splash = false;
+                self.show_country_select = true;
+            }
+            return;
+        }
+        let line = BOOT_LINES[self.boot_phase];
+        if line.is_empty() {
+            // blank lines: just pause then advance
+            if self.tick_count.saturating_sub(self.boot_tick_start) >= 20 {
+                self.boot_phase += 1;
+                self.boot_char_index = 0;
+                self.boot_tick_start = self.tick_count;
+            }
+            return;
+        }
+        let elapsed = self.tick_count.saturating_sub(self.boot_tick_start);
+        // 2 ticks per char → 30 chars/sec at 60fps
+        let chars_to_show = (elapsed / 2) as usize;
+        self.boot_char_index = chars_to_show.min(line.len());
+        if self.boot_char_index >= line.len() {
+            // line fully typed, pause 40 ticks then advance
+            let overshoot = elapsed - (line.len() as u64 * 2);
+            if overshoot >= 40 {
+                self.boot_phase += 1;
+                self.boot_char_index = 0;
+                self.boot_tick_start = self.tick_count;
+            }
+        }
     }
 }

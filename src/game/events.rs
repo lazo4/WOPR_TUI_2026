@@ -11,4 +11,5 @@ pub enum GameEvent {
     DiplomaticAction { country: Country, action: DiplAction },
     GameOver(GameOutcome),
     BudgetWarning(u8),
+    WorldStateUpdate { economic: f32, military: f32, political: f32 },
 }

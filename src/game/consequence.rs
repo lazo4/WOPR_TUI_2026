@@ -42,6 +42,18 @@ pub fn map_decision_to_events(
         events.push(GameEvent::CommReceived(comm.clone()));
     }
 
+    // world state shifts based on action type
+    let (eco, mil, pol) = if desc_lower.contains("escalat") || desc_lower.contains("scramble") || desc_lower.contains("military") {
+        (-0.05, 0.1, 0.05)
+    } else if desc_lower.contains("diplomatic") || desc_lower.contains("de-escalat") || desc_lower.contains("negotiate") {
+        (0.05, -0.1, -0.05)
+    } else if desc_lower.contains("sanction") || desc_lower.contains("economic") {
+        (-0.1, 0.0, 0.05)
+    } else {
+        (0.0, 0.05, 0.0)
+    };
+    events.push(GameEvent::WorldStateUpdate { economic: eco as f32, military: mil as f32, political: pol as f32 });
+
     // record decision
     events.push(GameEvent::PlayerDecision {
         scenario_id: scenario.id,
