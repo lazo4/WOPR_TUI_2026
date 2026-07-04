@@ -15,9 +15,9 @@ impl Mode {
         match self {
             Self::MainMap => Self::Comms,
             Self::Comms => Self::Settings,
-            Self::Settings => Self::Scenario,
-            Self::Scenario => Self::Defcon,
+            Self::Settings => Self::Defcon,
             Self::Defcon => Self::MainMap,
+            Self::Scenario => Self::MainMap,
         }
     }
 
@@ -26,8 +26,8 @@ impl Mode {
             Self::MainMap => Self::Defcon,
             Self::Comms => Self::MainMap,
             Self::Settings => Self::Comms,
-            Self::Scenario => Self::Settings,
-            Self::Defcon => Self::Scenario,
+            Self::Defcon => Self::Settings,
+            Self::Scenario => Self::MainMap,
         }
     }
 }

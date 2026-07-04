@@ -4,12 +4,13 @@ use crate::state::AppState;
 
 pub struct ViewState {
     pub status_bar: Rect,
-    pub content: Rect,
+    pub top_content: Rect,
+    pub bottom_panel: Rect,
     pub input_bar: Rect,
 }
 
 pub fn compute_view(_state: &AppState, area: Rect) -> ViewState {
-    let chunks = Layout::default()
+    let outer = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
             Constraint::Length(1),
@@ -18,9 +19,18 @@ pub fn compute_view(_state: &AppState, area: Rect) -> ViewState {
         ])
         .split(area);
 
+    let middle = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Percentage(65),
+            Constraint::Percentage(35),
+        ])
+        .split(outer[1]);
+
     ViewState {
-        status_bar: chunks[0],
-        content: chunks[1],
-        input_bar: chunks[2],
+        status_bar: outer[0],
+        top_content: middle[0],
+        bottom_panel: middle[1],
+        input_bar: outer[2],
     }
 }

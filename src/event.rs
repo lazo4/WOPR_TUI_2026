@@ -9,6 +9,8 @@ pub enum AppEvent {
     Tick,
     Resize(u16, u16),
     GameEvent(GameEvent),
+    ScenarioReady(String),
+    ScenarioFailed,
     Quit,
 }
 
