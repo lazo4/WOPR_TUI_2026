@@ -103,6 +103,8 @@ fn render_main_map(frame: &mut Frame, area: Rect, state: &AppState) {
     frame.render_widget(WorldMap {
         missiles: &state.missiles,
         threats: &state.threats,
+        comms: &state.comms,
+        player_country: state.player_country,
         tick: state.tick_count,
     }, inner);
     frame.render_widget(
