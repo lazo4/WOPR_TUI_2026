@@ -217,15 +217,8 @@ fi
 echo ""
 typewrite_color "$Y" "    COMPILING WOPR THEATER ENGINE..." 0.025
 echo ""
-cargo install --path "$SRC" --force 2>&1 | while IFS= read -r line; do
-    # Show compile progress dots
-    if echo "$line" | grep -q "Compiling"; then
-        PKG=$(echo "$line" | sed 's/.*Compiling \(.*\) v.*/\1/' 2>/dev/null || echo "$line")
-        printf "\r    %b▸%b Compiling: %-40s" "$C" "$NC" "$PKG"
-    fi
-done
-echo ""
-printf "    %b✓%b Build complete\n" "$G" "$NC"
+cargo install --path "$SRC" --force >/dev/null 2>&1 &
+spinner $! "Building release binary (this takes 1-2 minutes)"
 
 # ── Symlink wopr → wopr-2026 ──
 CARGO_BIN="${CARGO_HOME:-$HOME/.cargo}/bin"
