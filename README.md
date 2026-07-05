@@ -33,6 +33,20 @@ The film's central question — *"Is it a game, or is it real?"* — resonated w
 
 **WOPR TUI 2026** brings that experience to your terminal. You step into the role of a military advisor at a Cold War–era command center, responding to escalating geopolitical crises. An AI generates scenarios with multi-language intelligence intercepts, and your decisions push the world toward peace — or the brink of nuclear annihilation.
 
+## Screenshots
+
+<div align="center">
+
+| World Map & Intelligence Comms | DEFCON Escalation |
+|:---:|:---:|
+| ![Gameplay](screenshots/gameplay-comms.png) | ![DEFCON](screenshots/defcon-escalation.png) |
+
+| Scenario Decisions | Threat Assessment |
+|:---:|:---:|
+| ![Scenarios](screenshots/scenario-decisions.png) | ![Threats](screenshots/world-map-threats.png) |
+
+</div>
+
 ## Features
 
 - **ASCII World Map** — Continental outlines with 9 strategic locations, threat overlays, and animated missile trajectories
