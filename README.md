@@ -20,7 +20,7 @@ An interactive Cold War simulation TUI where you play as a military advisor resp
 ## Install
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/ankurCES/WOPR_TUI_2026/main/WOPR_TUI_2026/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/ankurCES/WOPR_TUI_2026/main/install.sh | bash
 ```
 
 Installs Rust (if needed), system deps, builds from source, and puts `wopr` on your PATH. Then just run:
