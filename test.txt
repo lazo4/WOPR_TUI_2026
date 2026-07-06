@@ -1,0 +1,3 @@
+   Compiling wopr-tui-2026 v0.1.0 (/Users/Alessio/sacred_code/WOPR_TUI_2026)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1.66s
+     Running `target/debug/wopr-2026`

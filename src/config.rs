@@ -41,7 +41,9 @@ struct BlumiProvider {
     kind: String,
 }
 
-fn default_kind() -> String { "anthropic".into() }
+fn default_kind() -> String {
+    "anthropic".into()
+}
 
 impl Default for Settings {
     fn default() -> Self {
@@ -70,7 +72,11 @@ impl Settings {
         };
 
         let provider_name = blumi.llm.provider.unwrap_or_else(|| "stub".into());
-        let resolved = blumi.providers.get(&provider_name).cloned().unwrap_or_default();
+        let resolved = blumi
+            .providers
+            .get(&provider_name)
+            .cloned()
+            .unwrap_or_default();
 
         Self {
             provider: provider_name,
